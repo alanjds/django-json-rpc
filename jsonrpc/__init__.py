@@ -2,9 +2,9 @@ import re
 from inspect import getargspec
 from functools import wraps
 from django.utils.datastructures import SortedDict
-from jsonrpc.site import jsonrpc_site
-from jsonrpc.types import *
-from jsonrpc.exceptions import *
+from .site import jsonrpc_site
+from .types import *
+from .exceptions import *
 
 default_site = jsonrpc_site
 KWARG_RE = re.compile(

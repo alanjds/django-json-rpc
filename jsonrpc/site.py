@@ -1,9 +1,9 @@
 import datetime, decimal
 from functools import wraps
 from uuid import uuid1
-from jsonrpc._json import loads, dumps
-from jsonrpc.exceptions import *
-from jsonrpc.types import *
+from ._json import loads, dumps
+from .exceptions import *
+from .types import *
 from django.core import signals
 empty_dec = lambda f: f
 try:
