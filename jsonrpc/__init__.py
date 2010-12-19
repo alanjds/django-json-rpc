@@ -122,7 +122,7 @@ def jsonrpc_method(name, authenticated=False, safe=False, validate=False,
                    site=default_site):
   """
   Wraps a function turns it into a json-rpc method. Adds several attributes
-  to the function speific to the JSON-RPC machinery and adds it to the default
+  to the function specific to the JSON-RPC machinery and adds it to the default
   jsonrpc_site if one isn't provided. You must import the module containing
   these functions in your urls.py.
   
