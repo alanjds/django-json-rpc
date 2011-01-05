@@ -44,6 +44,9 @@ class Error(Exception):
 
     return error
 
+  def __str__(self):
+	  return self.message
+ 
 # Exceptions
 # from http://groups.google.com/group/json-rpc/web/json-rpc-1-2-proposal
 
