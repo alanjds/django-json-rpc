@@ -24,14 +24,25 @@ class ServiceProxy(object):
                      '(the default version for this client, '
                      'pass version="2.0" to use keyword arguments)')
     # req = urllib2.Request(self.__service_url, )
-    r = urllib.urlopen(self.__service_url,
-                        dumps({
-                          "jsonrpc": self.__version,
-                          "method": self.__service_name,
-                          'params': params,
-                          'id': str(uuid.uuid1())})).read()
+    if self.__service_url.startswith('http://testserver/'):
+        url = self.__service_url.split('http://testserver')[-1]
+        from django.test import Client
+        c = Client()
+        r = c.post(url, content_type='application/x-www-form-urlencoded',
+            data = dumps({
+                              "jsonrpc": self.__version,
+                              "method": self.__service_name,
+                              'params': params,
+                              'id': str(uuid.uuid1())})).content
+    else:
+        r = urllib.urlopen(self.__service_url,
+                            dumps({
+                              "jsonrpc": self.__version,
+                              "method": self.__service_name,
+                              'params': params,
+                              'id': str(uuid.uuid1())})).read()
     y = loads(r)
-    if u'error' in y:
+    if y.get(u'error'):
       try:
         from django.conf import settings
         if settings.DEBUG:
