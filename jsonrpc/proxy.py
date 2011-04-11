@@ -1,17 +1,19 @@
-import urllib, uuid
+import uuid
 from jsonrpc._json import loads, dumps
 from jsonrpc.types import *
+import urllib2
 
 class ServiceProxy(object):
-  def __init__(self, service_url, service_name=None, version='1.0'):
+  def __init__(self, service_url, service_name=None, version='1.0', timeout=None):
     self.__version = str(version)
     self.__service_url = service_url
     self.__service_name = service_name
+    self._timeout = timeout
 
   def __getattr__(self, name):
     if self.__service_name != None:
       name = "%s.%s" % (self.__service_name, name)
-    return ServiceProxy(self.__service_url, name, self.__version)
+    return ServiceProxy(self.__service_url, name, self.__version, timeout=self._timeout)
   
   def __repr__(self):
     return {"jsonrpc": self.__version,
@@ -35,12 +37,12 @@ class ServiceProxy(object):
                               'params': params,
                               'id': str(uuid.uuid1())})).content
     else:
-        r = urllib.urlopen(self.__service_url,
+        r = urllib2.urlopen(self.__service_url,
                             dumps({
                               "jsonrpc": self.__version,
                               "method": self.__service_name,
                               'params': params,
-                              'id': str(uuid.uuid1())})).read()
+                              'id': str(uuid.uuid1())}), timeout=self._timeout).read()
     y = loads(r)
     if y.get(u'error'):
       try:
