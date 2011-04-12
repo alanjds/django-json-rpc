@@ -3,7 +3,15 @@ import sys
 import unittest
 import subprocess
 import time
-import urllib
+
+try:
+    #raise Exception()
+    import urllib2
+    from urllib2 import HTTPError
+except:
+    import urllib as urllib2
+    class HTTPError(IOError):
+        pass
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
@@ -46,7 +54,7 @@ from jsonrpc.types import *
 
 
 def _call(host, req):
-  return loads(urllib.urlopen(host, dumps(req)).read())
+  return loads(urllib2.urlopen(host, dumps(req)).read())
 
 
 def json_serve_thread():
@@ -263,9 +271,9 @@ class JSONRPCTest(unittest.TestCase):
               u'wtf': u'pants', u'nowai': 'nopants'}
     url = "%s%s?%s" % (
       self.host, 'jsonrpc.strangeSafeEcho',
-      (''.join(['%s=%s&' % (k, urllib.quote(v)) for k, v in params.iteritems()])).rstrip('&')
+      (''.join(['%s=%s&' % (k, urllib2.quote(v)) for k, v in params.iteritems()])).rstrip('&')
     )
-    resp = loads(urllib.urlopen(url).read())
+    resp = loads(urllib2.urlopen(url).read())
     self.assertEquals(resp[u'result'][-1], u'Default')
     self.assertEquals(resp[u'result'][1], u'this is omg')
     self.assertEquals(resp[u'result'][0], u'this is a string')
@@ -298,7 +306,7 @@ class JSONRPCTest(unittest.TestCase):
       u'params': [u'this is a string'], 
       u'id': None
     }
-    resp = urllib.urlopen(self.host, dumps(req)).read()
+    resp = urllib2.urlopen(self.host, dumps(req)).read()
     self.assertEquals(resp, '')
   
   def test_20_batch(self):
@@ -308,7 +316,7 @@ class JSONRPCTest(unittest.TestCase):
       u'params': [u'this is a string'],
       u'id': u'id-'+unicode(i)
     } for i in range(5)]
-    resp = loads(urllib.urlopen(self.host, dumps(req)).read())
+    resp = loads(urllib2.urlopen(self.host, dumps(req)).read())
     self.assertEquals(len(resp), len(req))
     for i, D in enumerate(resp):
       self.assertEquals(D[u'result'], req[i][u'params'][0])
@@ -321,7 +329,7 @@ class JSONRPCTest(unittest.TestCase):
       u'params': [u'this is a string'],
       u'id': u'id-'+unicode(i)
     } for i in range(10)]
-    resp = loads(urllib.urlopen(self.host, dumps(req)).read())
+    resp = loads(urllib2.urlopen(self.host, dumps(req)).read())
     self.assertEquals(len(resp), len(req))
     for i, D in enumerate(resp):
       if not i % 2:
@@ -346,21 +354,25 @@ class JSONRPCTest(unittest.TestCase):
   
   def test_authenticated_fail_kwargs(self):
     try:
-      self.proxy20.jsonrpc.testAuth(
+      ret = self.proxy20.jsonrpc.testAuth(
         username='osammeh', password='password', string=u'this is a string')
+    except HTTPError, e:
+      self.assertEquals(e.code, 401)
     except IOError, e:
       self.assertEquals(e.args[1], 401)
     else:
-      self.assert_(False, 'Didnt return status code 401 on unauthorized access')
+      self.assertEquals(ret[u'error'][u'code'], 401)
   
   def test_authenticated_fail(self):
     try:
-      self.proxy10.jsonrpc.testAuth(
+      ret = self.proxy10.jsonrpc.testAuth(
         'osammeh', 'password', u'this is a string')
+    except HTTPError, e:
+      self.assertEquals(e.code, 401)
     except IOError, e:
       self.assertEquals(e.args[1], 401)
     else:
-      self.assert_(False, 'Didnt return status code 401 on unauthorized access')
+      self.assertEquals(ret[u'error'][u'code'], 401)
 
 
 if __name__ == '__main__':

@@ -1,7 +1,14 @@
 import uuid
 from jsonrpc._json import loads, dumps
 from jsonrpc.types import *
-import urllib2
+try:
+    #raise Exception
+    import urllib2
+    from urllib2 import HTTPError
+except:
+    import urllib as urllib2
+    class HTTPError(IOError):
+        pass
 
 class ServiceProxy(object):
   def __init__(self, service_url, service_name=None, version='1.0', timeout=None):
@@ -26,24 +33,45 @@ class ServiceProxy(object):
                      '(the default version for this client, '
                      'pass version="2.0" to use keyword arguments)')
     # req = urllib2.Request(self.__service_url, )
-    if self.__service_url.startswith('http://testserver/'):
-        url = self.__service_url.split('http://testserver')[-1]
-        from django.test import Client
-        c = Client()
-        r = c.post(url, content_type='application/x-www-form-urlencoded',
-            data = dumps({
-                              "jsonrpc": self.__version,
-                              "method": self.__service_name,
-                              'params': params,
-                              'id': str(uuid.uuid1())})).content
-    else:
-        r = urllib2.urlopen(self.__service_url,
-                            dumps({
-                              "jsonrpc": self.__version,
-                              "method": self.__service_name,
-                              'params': params,
-                              'id': str(uuid.uuid1())}), timeout=self._timeout).read()
-    y = loads(r)
+    try:
+        if self.__service_url.startswith('http://testserver/'):
+            url = self.__service_url.split('http://testserver')[-1]
+            from django.test import Client
+            c = Client()
+            r = c.post(url, content_type='application/x-www-form-urlencoded',
+                data = dumps({
+                                  "jsonrpc": self.__version,
+                                  "method": self.__service_name,
+                                  'params': params,
+                                  'id': str(uuid.uuid1())})).content
+        else:
+
+            if self._timeout and urllib2.__name__ == 'urllib2':
+                # Timeout is provided
+                r = urllib2.urlopen(self.__service_url,
+                                    dumps({
+                                      "jsonrpc": self.__version,
+                                      "method": self.__service_name,
+                                      'params': params,
+                                      'id': str(uuid.uuid1())}), timeout=self._timeout).read()
+            else:
+                # Timeout not provied, or not supported
+                r = urllib2.urlopen(self.__service_url,
+                                    dumps({
+                                      "jsonrpc": self.__version,
+                                      "method": self.__service_name,
+                                      'params': params,
+                                      'id': str(uuid.uuid1())})).read()
+        y = loads(r)
+    except HTTPError, e:
+        try:
+            r = e.fp.read()
+            y = loads(r)
+        except Exception, e1:
+            raise e
+    #except IOError, e:
+    #   TODO: Never raise error
+
     if y.get(u'error'):
       try:
         from django.conf import settings
