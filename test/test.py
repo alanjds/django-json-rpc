@@ -116,6 +116,14 @@ def checkedVarArgsEcho(request, *args, **kw):
 def echoWithHashChecking(requset, string):
   return string
 
+@jsonrpc_method('jsonrpc.withHashChecking2', secret=["my-secret-key","his-secret-key"])
+def echoWithHashChecking2(requset, string):
+  return string
+
+@jsonrpc_method('jsonrpc.withHashChecking3', secret={'my':"my-secret-key",'his':"his-secret-key"})
+def echoWithHashChecking3(requset, string):
+  return string
+
 
 class JSONRPCFunctionalTests(unittest.TestCase):
   def test_method_parser(self):
@@ -226,7 +234,8 @@ class JSONRPCTest(unittest.TestCase):
     self.proxy10 = ServiceProxy(self.host, version='1.0')
     self.proxy20 = ServiceProxy(self.host, version='2.0')
     self.proxyHC = ServiceProxy(self.host, secret='my-secret-key')
-    self.proxyHW = ServiceProxy(self.host, secret='my-wrong-key')
+    self.proxyHW = ServiceProxy(self.host, secret='his-secret-key')
+    self.proxyHX = ServiceProxy(self.host, secret='wrong-secret-key')
   
   def tearDown(self):
     # self.proc.terminate()
@@ -348,7 +357,13 @@ class JSONRPCTest(unittest.TestCase):
 
   def test_hash_checking(self):
     self.assertEquals(self.proxyHC.jsonrpc.withHashChecking('Some secret info')[u'result'], 'Some secret info')
+    self.assertEquals(self.proxyHC.jsonrpc.withHashChecking2('Some secret info')[u'result'], 'Some secret info')
+    self.assertEquals(self.proxyHC.jsonrpc.withHashChecking3('Some secret info')[u'result'], 'Some secret info')
     self.assertEquals(self.proxyHW.jsonrpc.withHashChecking('Some secret info')[u'error'][u'code'], -32610)
+    self.assertEquals(self.proxyHW.jsonrpc.withHashChecking2('Some secret info')[u'result'], 'Some secret info')
+    self.assertEquals(self.proxyHW.jsonrpc.withHashChecking3('Some secret info')[u'result'], 'Some secret info')
+    self.assertEquals(self.proxyHX.jsonrpc.withHashChecking2('Some secret info')[u'error'][u'code'], -32610)
+    self.assertEquals(self.proxyHX.jsonrpc.withHashChecking3('Some secret info')[u'error'][u'code'], -32610)
   
   def test_authenticated_ok(self):
     self.assertEquals(
