@@ -119,7 +119,7 @@ def _inject_args(sig, types):
   return sig
 
 def jsonrpc_method(name, authenticated=False, safe=False, validate=False,
-                   site=default_site):
+                   site=default_site, secret=None):
   """
   Wraps a function turns it into a json-rpc method. Adds several attributes
   to the function specific to the JSON-RPC machinery and adds it to the default
@@ -168,11 +168,20 @@ def jsonrpc_method(name, authenticated=False, safe=False, validate=False,
         
         Defines which site the jsonrpc method will be added to. Can be any 
         object that provides a `register(name, func)` method.
+
+    secret=None
+
+        List or dictionary or string, containing secret key(s) to verify
+        md5 signature, passed to the HTTP Request as 'hash_code' GET parameter.
     
   """
   def decorator(func):
     arg_names = getargspec(func)[0][1:]
     X = {'name': name, 'arg_names': arg_names}
+
+    _func = func
+
+    # Wrap for authenticated
     if authenticated:
       if authenticated is True:
         # TODO: this is an assumption
@@ -183,7 +192,7 @@ def jsonrpc_method(name, authenticated=False, safe=False, validate=False,
       else:
         authenticate = authenticated
       @wraps(func)  
-      def _func(request, *args, **kwargs):
+      def _func1(request, *args, **kwargs):
         user = getattr(request, 'user', None)
         is_authenticated = getattr(user, 'is_authenticated', lambda: False)
         if ((user is not None 
@@ -210,8 +219,38 @@ def jsonrpc_method(name, authenticated=False, safe=False, validate=False,
             raise InvalidCredentialsError
           request.user = user
         return func(request, *args, **kwargs)
+      _func = _func1
     else:
-      _func = func
+      _func1 = _func
+
+    # Wrap for md5 checking
+    if secret:
+      # Make local var
+      my_secret = secret
+      # Import md5 library
+      try: 
+        from hashlib import md5
+      except ImportError:
+        from md5 import md5
+      # Convert secret to dictionary
+      if isinstance(my_secret, list) or isinstance(my_secret, tuple):
+        my_secret = dict(enumerate(my_secret))
+      if not isinstance(my_secret, dict):
+        my_secret = {0:my_secret}
+      @wraps(_func)  
+      def _func2(request, *args, **kwargs):
+        hash_code = request.GET.get('hash_code')
+        raw_data = request.raw_post_data
+        if hash_code:
+          for k,v in my_secret.iteritems():
+            if md5(raw_data+v).hexdigest() == hash_code:
+              # TODO: Inform view about ID of hash_code
+              return _func1(request, *args, **kwargs)
+        raise InvalidHashError
+      _func = _func2
+    else:
+      _func2 = _func #for future
+
     method, arg_types, return_type = \
       _parse_sig(X['name'], X['arg_names'], validate)
     _func.json_args = X['arg_names']
@@ -221,6 +260,7 @@ def jsonrpc_method(name, authenticated=False, safe=False, validate=False,
     _func.json_safe = safe
     _func.json_sig = X['name']
     _func.json_validate = validate
+    _func.json_hash_checked = (secret != None)
     site.register(method, _func)
     return _func
   return decorator

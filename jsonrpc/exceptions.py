@@ -94,6 +94,12 @@ class InvalidCredentialsError(Error):
   code = 401
   message = _('Invalid login credentials')
   status = 401
+
+class InvalidHashError(Error):
+  """ Invalid or not specified md5 security hash code """
+  code = -32610
+  message = _('Invalid security hash code')
+  status = 401
   
 class OtherError(Error):
   """ catchall error """

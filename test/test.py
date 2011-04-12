@@ -112,6 +112,10 @@ def authCheckedEcho(request, obj1, arr1):
 def checkedVarArgsEcho(request, *args, **kw):
   return list(args) + kw.values()
 
+@jsonrpc_method('jsonrpc.withHashChecking', secret="my-secret-key")
+def echoWithHashChecking(requset, string):
+  return string
+
 
 class JSONRPCFunctionalTests(unittest.TestCase):
   def test_method_parser(self):
@@ -221,6 +225,8 @@ class JSONRPCTest(unittest.TestCase):
     self.host = 'http://127.0.0.1:8999/json/'
     self.proxy10 = ServiceProxy(self.host, version='1.0')
     self.proxy20 = ServiceProxy(self.host, version='2.0')
+    self.proxyHC = ServiceProxy(self.host, secret='my-secret-key')
+    self.proxyHW = ServiceProxy(self.host, secret='my-wrong-key')
   
   def tearDown(self):
     # self.proc.terminate()
@@ -339,6 +345,10 @@ class JSONRPCTest(unittest.TestCase):
         self.assertEquals(D[u'result'], None)
         self.assert_(u'error' in D)
         self.assertEquals(D[u'error'][u'code'], 500)
+
+  def test_hash_checking(self):
+    self.assertEquals(self.proxyHC.jsonrpc.withHashChecking('Some secret info')[u'result'], 'Some secret info')
+    self.assertEquals(self.proxyHW.jsonrpc.withHashChecking('Some secret info')[u'error'][u'code'], -32610)
   
   def test_authenticated_ok(self):
     self.assertEquals(

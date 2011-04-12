@@ -239,7 +239,9 @@ class JSONRPCSite(object):
       'idempotent': M.json_safe,
       'params': [{'type': str(Any.kind(t)), 'name': k} 
         for k, t in M.json_arg_types.iteritems()],
-      'return': {'type': str(M.json_return_type)}}
+      'return': {'type': str(M.json_return_type)},
+      'hash_checked': M.json_hash_checked,
+    }
   
   def service_desc(self):
     return {
