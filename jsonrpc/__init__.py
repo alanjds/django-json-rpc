@@ -119,7 +119,7 @@ def _inject_args(sig, types):
   return sig
 
 def jsonrpc_method(name, authenticated=False, safe=False, validate=False,
-                   site=default_site, secret=None):
+                   site=default_site, secret=None, callback=None):
   """
   Wraps a function turns it into a json-rpc method. Adds several attributes
   to the function specific to the JSON-RPC machinery and adds it to the default
@@ -173,6 +173,12 @@ def jsonrpc_method(name, authenticated=False, safe=False, validate=False,
 
         List or dictionary or string, containing secret key(s) to verify
         md5 signature, passed to the HTTP Request as 'hash_code' GET parameter.
+
+    callback=None
+
+        Callback function, that is called just before returning JSON.
+        Should accept two positional arguments: request (HttpRequest),
+        response_object (the object to be converted to JSON)
     
   """
   def decorator(func):
@@ -261,6 +267,7 @@ def jsonrpc_method(name, authenticated=False, safe=False, validate=False,
     _func.json_sig = X['name']
     _func.json_validate = validate
     _func.json_hash_checked = (secret != None)
+    _func.json_callback = callback
     site.register(method, _func)
     return _func
   return decorator

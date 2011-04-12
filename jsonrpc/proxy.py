@@ -81,10 +81,13 @@ class ServiceProxy(object):
         # 4. Load JSON
         y = loads(r)
     except HTTPError, e:
+        r = None
         try:
             r = e.fp.read()
             y = loads(r)
         except Exception, e1:
+            if r:
+                raise Exception(r[:2000])
             raise e
     #except IOError, e:
     #   TODO: Never raise error

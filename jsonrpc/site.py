@@ -123,7 +123,7 @@ class JSONRPCSite(object):
     apply_version = {'2.0': lambda f, r, p: f(r, **encode_kw(p)) if type(p) is dict else f(r, *p),
                      '1.1': lambda f, r, p: f(r, *encode_arg11(p), **encode_kw(encode_kw11(p))),
                      '1.0': lambda f, r, p: f(r, *p)}
-    
+    method = None
     try:
       if 'method' not in D or 'params' not in D:
         raise InvalidParamsError('Request requires str:"method" and list:"params"')
@@ -181,6 +181,21 @@ class JSONRPCSite(object):
       status = other_error.status
       if version == '1.1' and 'result' in response:
         response.pop('result')
+
+    # Run callback
+    if method and hasattr(method, 'json_callback'):
+      callback = method.json_callback
+      if callback and callable(callback):
+        try:
+            callback(request, response)
+        except Exception,e:
+          # exception while calling callback
+          signals.got_request_exception.send(sender=self.__class__, request=request)
+          other_error = OtherError(e)
+          response['error'] = other_error.json_rpc_format
+          status = other_error.status
+          if version == '1.1' and 'result' in response:
+            response.pop('result')
     
     return response, status
   
