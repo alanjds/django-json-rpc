@@ -259,9 +259,9 @@ def jsonrpc_method(name, authenticated=False, safe=False, validate=False,
         hash_code = request.GET.get('hash_code', '')
         raw_data = request.raw_post_data
         for k,v in my_secret.iteritems():
-          if md5(raw_data+v).hexdigest() == hash_code:
+          if (v=='' and hash_code=='') or md5(raw_data+v).hexdigest() == hash_code:
             request.client_id = k
-            if not v:
+            if v=='':
               print '=========== WARNING: RPC call with empty secret key! ==========='
             return _func1(request, *args, **kwargs)
         raise InvalidHashError
