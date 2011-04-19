@@ -256,15 +256,14 @@ def jsonrpc_method(name, authenticated=False, safe=False, validate=False,
         my_secret = {0:my_secret}
       @wraps(_func)  
       def _func2(request, *args, **kwargs):
-        hash_code = request.GET.get('hash_code')
+        hash_code = request.GET.get('hash_code', '')
         raw_data = request.raw_post_data
-        if hash_code!=None:
-          for k,v in my_secret.iteritems():
-            if md5(raw_data+v).hexdigest() == hash_code:
-              request.client_id = k
-              if not v:
-                print '=========== WARNING: RPC call with empty secret key! ==========='
-              return _func1(request, *args, **kwargs)
+        for k,v in my_secret.iteritems():
+          if md5(raw_data+v).hexdigest() == hash_code:
+            request.client_id = k
+            if not v:
+              print '=========== WARNING: RPC call with empty secret key! ==========='
+            return _func1(request, *args, **kwargs)
         raise InvalidHashError
       _func = _func2
     else:
