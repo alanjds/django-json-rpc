@@ -44,7 +44,7 @@ class ServiceProxy(object):
                       'id': str(uuid.uuid1())})
 
         # 2. Sign it
-        if self.__secret:
+        if self.__secret!=None:
             secret_key = callable(self.__secret) and self.__secret or self.__secret
             try: 
                from hashlib import md5

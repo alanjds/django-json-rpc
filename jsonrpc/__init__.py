@@ -171,8 +171,19 @@ def jsonrpc_method(name, authenticated=False, safe=False, validate=False,
 
     secret=None
 
-        List or dictionary or string, containing secret key(s) to verify
+        List or dictionary or string, containing secret key(s) to authenticate request by
         md5 signature, passed to the HTTP Request as 'hash_code' GET parameter.
+        It is possible to use EMPTY secret key for testing purposes. In this case
+        an entry with empty value should be explicitly specified in ``secret``
+        list or dictionary, or passed as an empty string. When somebody
+        connects to jsonrpc using empty key, WARNING is printed in stdout.
+
+        If authentication by secret key is used, the decorator adds extra parameter
+        to HttpRequest, called ``client_id``:
+
+            * For dictionary: **client_id** is key of the first secret, checking by which was succeeded.
+            * For list: **client_id** is ordinal of the first valid secret key (zero-based).
+            * For string: **client_id**=0
 
     callback=None
 
@@ -247,10 +258,12 @@ def jsonrpc_method(name, authenticated=False, safe=False, validate=False,
       def _func2(request, *args, **kwargs):
         hash_code = request.GET.get('hash_code')
         raw_data = request.raw_post_data
-        if hash_code:
+        if hash_code!=None:
           for k,v in my_secret.iteritems():
             if md5(raw_data+v).hexdigest() == hash_code:
-              # TODO: Inform view about ID of hash_code
+              request.client_id = k
+              if not v:
+                print '=========== WARNING: RPC call with empty secret key! ==========='
               return _func1(request, *args, **kwargs)
         raise InvalidHashError
       _func = _func2

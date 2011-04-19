@@ -37,7 +37,7 @@ class Error(Exception):
 
     from django.conf import settings
     
-    if settings.DEBUG:
+    if settings.DEBUG or getattr(settings, 'DEBUG_JSONRPC', False):
         import sys, traceback
         error['stack'] = traceback.format_exc()
         error['executable'] = sys.executable
