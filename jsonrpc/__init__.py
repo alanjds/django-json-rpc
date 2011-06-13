@@ -43,11 +43,11 @@ def _eval_arg_type(arg_type, T=Any, arg=None, sig=None):
   try:
     T = eval(arg_type)
   except Exception, e:
-    raise ValueError('The type of %s could not be evaluated in %s for %s: %s' %
+    raise ValueError('The type of %s could not be evaluated in %s for %s: %s' % 
                     (arg_type, arg, sig, str(e)))
   else:
     if type(T) not in (type, Type):
-      raise TypeError('%s is not a valid type in %s for %s' %
+      raise TypeError('%s is not a valid type in %s for %s' % 
                       (repr(T), arg, sig))
     return T
 
@@ -92,8 +92,8 @@ def _parse_sig(sig, arg_names, validate=False):
           ret[i] = (ret[i][0], _eval_arg_type(arg, None, arg, sig))
   if not type(ret) is SortedDict:
     ret = SortedDict(ret)
-  return (d['method_name'], 
-          ret, 
+  return (d['method_name'],
+          ret,
           (_eval_arg_type(d['return_sig'], Any, 'return', sig)
             if d['return_sig'] else Any))
 
@@ -111,15 +111,15 @@ def _inject_args(sig, types):
   if '(' in sig:
     parts = sig.split('(')
     sig = '%s(%s%s%s' % (
-      parts[0], ', '.join(types), 
+      parts[0], ', '.join(types),
       (', ' if parts[1].index(')') > 0 else ''), parts[1]
     )
   else:
     sig = '%s(%s)' % (sig, ', '.join(types))
   return sig
 
-def jsonrpc_method(name, authenticated=False, safe=False, validate=False,
-                   site=default_site, secret=None, callback=None):
+def jsonrpc_method(name, authenticated=False, safe=False, validate=True,
+                   site=default_site, secret=None, callback=None, permissions=None):
   """
   Wraps a function turns it into a json-rpc method. Adds several attributes
   to the function specific to the JSON-RPC machinery and adds it to the default
@@ -133,16 +133,12 @@ def jsonrpc_method(name, authenticated=False, safe=False, validate=False,
 
     authenticated=False   
 
-        Adds `username` and `password` arguments to the beginning of your 
-        method if the user hasn't already been authenticated. These will 
-        be used to authenticate the user against `django.contrib.authenticate` 
-        If you use HTTP auth or other authentication middleware, `username` 
-        and `password` will not be added, and this method will only check 
-        against `request.user.is_authenticated`.
-
-        You may pass a callablle to replace `django.contrib.auth.authenticate`
-        as the authentication method. It must return either a User or `None`
-        and take the keyword arguments `username` and `password`.
+        Checks if a user is authenticated. If not, it will raise an exception.
+        
+    permissions=None
+    
+        Checks if a user has the right permissions to access the method.
+        Will raise an exception if the user is not able to view it.
 
     safe=False
 
@@ -199,46 +195,35 @@ def jsonrpc_method(name, authenticated=False, safe=False, validate=False,
     _func = func
 
     # Wrap for authenticated
-    if authenticated:
-      if authenticated is True:
-        # TODO: this is an assumption
-        X['arg_names'] = ['username', 'password'] + X['arg_names']
-        X['name'] = _inject_args(X['name'], ('String', 'String'))
-        from django.contrib.auth import authenticate
-        from django.contrib.auth.models import User
-      else:
-        authenticate = authenticated
-      @wraps(func)  
-      def _func1(request, *args, **kwargs):
-        user = getattr(request, 'user', None)
-        is_authenticated = getattr(user, 'is_authenticated', lambda: False)
-        if ((user is not None 
-              and callable(is_authenticated) and not is_authenticated()) 
-            or user is None):
-          user = None
-          try:
-            creds = args[:2]
-            user = authenticate(username=creds[0], password=creds[1])
-            if user is not None:
-              args = args[2:]
-          except IndexError: 
-            if 'username' in kwargs and 'password' in kwargs:
-              user = authenticate(username=kwargs['username'],
-                                  password=kwargs['password'])
-              if user is not None:
-                kwargs.pop('username')
-                kwargs.pop('password')
-            else:
-              raise InvalidParamsError(
-                'Authenticated methods require at least '
-                '[username, password] or {username: password:} arguments')
-          if user is None:
-            raise InvalidCredentialsError
-          request.user = user
-        return func(request, *args, **kwargs)
-      _func = _func1
+    if authenticated is True:        
+        @wraps(func)
+        def _func1(request, *args, **kwargs):
+            user = getattr(request, 'user', None)
+            is_authenticated = getattr(user, 'is_authenticated', lambda: False)
+        
+            if is_authenticated() is False:
+                raise InvalidCredentialsError
+        
+            return func(request, *args, **kwargs)
+        
+        _func = _func1
     else:
-      _func1 = _func
+        _func1 = _func
+    
+    # Wrap for permissions
+    if permissions:
+        @wraps(func)
+        def _func3(request, *args, **kwargs):
+            user = getattr(request, 'user', None)
+
+            if user.has_perm(permissions) is False:
+                raise InvalidCredentialsError
+        
+            return func(request, *args, **kwargs)
+        
+        _func = _func3
+    else:
+        _func3 = _func
 
     # Wrap for md5 checking
     if secret:
@@ -258,10 +243,10 @@ def jsonrpc_method(name, authenticated=False, safe=False, validate=False,
       def _func2(request, *args, **kwargs):
         hash_code = request.GET.get('hash_code', '')
         raw_data = request.raw_post_data
-        for k,v in my_secret.iteritems():
-          if (v=='' and hash_code=='') or md5(raw_data+v).hexdigest() == hash_code:
+        for k, v in my_secret.iteritems():
+          if (v == '' and hash_code == '') or md5(raw_data + v).hexdigest() == hash_code:
             request.client_id = k
-            if v=='':
+            if v == '':
               print '=========== WARNING: RPC call with empty secret key! ==========='
             return _func1(request, *args, **kwargs)
         raise InvalidHashError
@@ -283,3 +268,4 @@ def jsonrpc_method(name, authenticated=False, safe=False, validate=False,
     site.register(method, _func)
     return _func
   return decorator
+

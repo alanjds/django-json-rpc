@@ -125,7 +125,9 @@ class JSONRPCSite(object):
                      '1.0': lambda f, r, p: f(r, *p)}
     method = None
     try:
-      if 'method' not in D or 'params' not in D:
+      if 'params' not in D:
+        D['params'] = []
+      if 'method' not in D:
         raise InvalidParamsError('Request requires str:"method" and list:"params"')
       if D['method'] not in self.urls:
         raise MethodNotFoundError('Method not found. Available methods: %s' % (
