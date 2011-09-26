@@ -118,7 +118,7 @@ def _inject_args(sig, types):
     sig = '%s(%s)' % (sig, ', '.join(types))
   return sig
 
-def jsonrpc_method(name, authenticated=False, safe=False, validate=True,
+def jsonrpc_method(name, authenticated=False, safe=False, validate=False,
                    site=default_site, secret=None, callback=None, permissions=None):
   """
   Wraps a function turns it into a json-rpc method. Adds several attributes
